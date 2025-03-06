@@ -1,0 +1,105 @@
+name: CI Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      # Setup for Python - modify for other languages as needed
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -r requirements-dev.txt
+      
+      - name: Lint with flake8
+        run: |
+          flake8 src tests
+      
+      - name: Check formatting with black
+        run: |
+          black --check src tests
+      
+      - name: Check type hints with mypy
+        run: |
+          mypy src
+  
+  test:
+    runs-on: ubuntu-latest
+    needs: lint
+    steps:
+      - uses: actions/checkout@v3
+      
+      # Docker-based testing
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+      
+      - name: Build test image
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          load: true
+          tags: ti-test:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      
+      - name: Run tests
+        run: |
+          docker run --rm ti-test python -m pytest --cov=src --cov-report=xml
+      
+      - name: Upload coverage report
+        uses: codecov/codecov-action@v3
+        with:
+          file: ./coverage.xml
+  
+  build:
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+      
+      - name: Build and export
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          load: true
+          tags: ti-app:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      
+      - name: Test image
+        run: |
+          docker run --rm ti-app:${{ github.sha }} echo "Image works!"
+      
+      # If this is a push to main, you could add deployment steps here
+      # Example of conditional push to registry:
+      # - name: Login to registry
+      #   if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+      #   uses: docker/login-action@v2
+      #   with:
+      #     registry: your-registry.com
+      #     username: ${{ secrets.REGISTRY_USERNAME }}
+      #     password: ${{ secrets.REGISTRY_PASSWORD }}
+      #
+      # - name: Push image
+      #   if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+      #   uses: docker/build-push-action@v4
+      #   with:
+      #     context: .
+      #     push: true
+      #     tags: your-registry.com/ti-app:${{ github.sha }},your-registry.com/ti-app:latest

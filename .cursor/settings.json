@@ -1,0 +1,98 @@
+{
+  "editor": {
+    "formatOnSave": true,
+    "tabSize": 2,
+    "insertSpaces": true,
+    "defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "cursor": {
+    "ai": {
+      "defaultModel": "claude-3-5-sonnet",
+      "fallbackModel": "gpt-4o",
+      "useCodebaseContext": true,
+      "maxContext": 100000,
+      "cacheDuration": 604800,
+      "rulesEnabled": true,
+      "rulesDirectory": ".cursor/rules"
+    },
+    "composer": {
+      "defaultMode": "agent",
+      "autoApproveTools": false,
+      "enableYolo": false,
+      "showDiffs": true,
+      "maxToolCalls": 25,
+      "allowFileCreation": true
+    },
+    "indexing": {
+      "enabled": true,
+      "excludePatterns": [
+        "node_modules",
+        "dist",
+        "build",
+        ".git",
+        "*.log",
+        "*.lock",
+        "*.min.js",
+        "*.map",
+        "venv",
+        ".venv",
+        "__pycache__",
+        "*.pyc",
+        ".DS_Store",
+        "*.csv",
+        "*.parquet",
+        "*.sqlite",
+        "*.db"
+      ],
+      "includePatterns": [
+        "src/**/*",
+        "tests/**/*",
+        "docs/**/*.md",
+        "scripts/**/*.{sh,py,js}",
+        "config/**/*"
+      ]
+    },
+    "linting": {
+      "enableInlineFixing": true,
+      "showLintMessages": true,
+      "lintOnSave": true
+    },
+    "autocomplete": {
+      "enabled": true,
+      "tabCompletion": true,
+      "inlineSuggestions": true,
+      "acceptFirstWord": false,
+      "toggleKey": "alt"
+    },
+    "tools": {
+      "terminal": {
+        "enabled": true,
+        "requireApproval": true,
+        "shell": "/bin/bash"
+      },
+      "webSearch": {
+        "enabled": true,
+        "preferredEngine": "google"
+      },
+      "codebaseSearch": {
+        "enabled": true,
+        "enhanceWithContext": true,
+        "includeCommits": false
+      },
+      "fileEditTool": {
+        "enabled": true
+      }
+    },
+    "layout": {
+      "editorVerticalAlignment": "center",
+      "useVerticalChat": false,
+      "useToolBarLayout": true
+    },
+    "tailoredIntelligence": {
+      "projectType": "[TYPE]",
+      "component": "[COMPONENT_NAME]",
+      "technology": "[TECHNOLOGY]",
+      "version": "[VERSION]"
+    }
+  }
+} 

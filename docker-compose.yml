@@ -1,0 +1,67 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - .:/app
+      - ./data:/app/data
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    environment:
+      - DEBUG=true
+      - LOG_LEVEL=DEBUG
+    restart: unless-stopped
+    # Uncomment if additional services are required
+    # depends_on:
+    #   - db
+    #   - redis
+
+  # Uncomment if a database is needed
+  # db:
+  #   image: postgres:14-alpine
+  #   volumes:
+  #     - postgres_data:/var/lib/postgresql/data
+  #   environment:
+  #     - POSTGRES_PASSWORD=${DB_PASSWORD:-development}
+  #     - POSTGRES_USER=${DB_USER:-app}
+  #     - POSTGRES_DB=${DB_NAME:-app_development}
+  #   ports:
+  #     - "5432:5432"
+  #   restart: unless-stopped
+
+  # Uncomment if redis is needed
+  # redis:
+  #   image: redis:6-alpine
+  #   volumes:
+  #     - redis_data:/data
+  #   ports:
+  #     - "6379:6379"
+  #   restart: unless-stopped
+
+  # Test service for running tests
+  test:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - .:/app
+    env_file:
+      - .env.test
+    environment:
+      - TESTING=true
+      - LOG_LEVEL=DEBUG
+    command: sh -c "sleep 5 && python -m pytest"
+    # Uncomment if test depends on other services
+    # depends_on:
+    #   - db
+    #   - redis
+
+# Uncomment if using persistent volumes
+# volumes:
+#   postgres_data:
+#   redis_data:

@@ -1,0 +1,7 @@
+# Tailored Intelligence Templates Metadata
+version=1.0.0 
+component=code-analysis
+type=agent
+technology=python
+date_created=2025-03-06
+repository_url=https://github.com/chllming/ti-templates.git

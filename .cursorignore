@@ -1,0 +1,35 @@
+# Cursor ignore file - prevents indexing of specified patterns
+
+# Dependencies
+node_modules/
+venv/
+.venv/
+__pycache__/
+*.pyc
+
+# Build artifacts
+dist/
+build/
+*.min.js
+*.min.css
+*.map
+
+# Large data files
+*.csv
+*.parquet
+*.sqlite
+*.db
+
+# Logs and temporary files
+logs/
+*.log
+.DS_Store
+.cache/
+tmp/
+
+# Sensitive information
+.env
+.env.*
+credentials/
+*_key.*
+*_token.*
