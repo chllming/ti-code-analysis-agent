@@ -80,10 +80,16 @@ def before_request():
 
 @app.after_request
 def after_request(response):
-    """Update metrics after request completion."""
+    """Update metrics after request completion and add CORS headers."""
     if hasattr(g, 'request_id'):
         is_error = response.status_code >= 400
         metrics_store.end_request(g.request_id, response.status_code, is_error)
+    
+    # Add CORS headers to allow Cursor to communicate with the server
+    response.headers.add('Access-Control-Allow-Origin', '*')
+    response.headers.add('Access-Control-Allow-Headers', 'Content-Type')
+    response.headers.add('Access-Control-Allow-Methods', 'POST, OPTIONS')
+    
     return response
 
 
@@ -284,26 +290,34 @@ def handle_jsonrpc(request_data: Dict[str, Any]) -> Dict[str, Any]:
 
 @app.route("/mcp", methods=["POST"])
 def mcp_endpoint() -> Response:
-    """MCP endpoint that handles JSON-RPC 2.0 requests."""
-    # Validate content type
-    if request.content_type != "application/json":
-        logger.warning(f"Invalid content type: {request.content_type}")
-        return jsonify(
-            create_error_response(None, ERROR_PARSE_ERROR, "Expected application/json content type")
-        ), 415
-    
-    # Parse JSON request
-    try:
-        request_data = request.get_json()
-    except Exception as e:
-        logger.exception(f"Error parsing JSON request: {str(e)}")
-        return jsonify(
-            create_error_response(None, ERROR_PARSE_ERROR, f"Parse error: {str(e)}")
-        ), 400
+    """
+    Main MCP endpoint that handles JSON-RPC requests.
+    """
+    # Track request in metrics
+    request_id = str(uuid.uuid4())
+    g.request_id = request_id
+    metrics_store.start_request(request_id, request.path, request.method)
     
     # Process the request
-    response = handle_jsonrpc(request_data)
-    return jsonify(response)
+    try:
+        if not request.is_json:
+            logger.warning("Request is not JSON", extra={"request_id": request_id})
+            return jsonify(create_error_response(None, -32700, "Parse error: Request must be JSON")), 400
+        
+        request_data = request.get_json()
+        response_data = handle_jsonrpc(request_data)
+        return jsonify(response_data)
+    except Exception as e:
+        logger.exception("Unexpected error", extra={"request_id": request_id, "error": str(e)})
+        return jsonify(create_error_response(None, -32603, f"Internal error: {str(e)}")), 500
+
+
+@app.route("/mcp", methods=["OPTIONS"])
+def mcp_options() -> Response:
+    """
+    Handle OPTIONS requests for CORS preflight.
+    """
+    return "", 200
 
 
 @app.route("/health", methods=["GET"])
