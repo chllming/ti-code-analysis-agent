@@ -1,18 +1,40 @@
 # Language-Specific Guidelines
 
 ## Python Best Practices
-- Follow PEP 8 style guidelines
+- Follow PEP 8 style guidelines for code formatting and style
 - Use type hints for function parameters and return values
 - Leverage dataclasses or Pydantic models for data validation
-- Prefer context managers for resource handling
+- Prefer context managers for resource handling (especially file operations)
 - Use virtual environments for dependency management
-- Document functions with docstrings following Google or NumPy style
+- Document functions with docstrings following Google style
 - Use list/dict comprehensions for clarity when appropriate
 - Leverage generator expressions for memory efficiency
 - Prefer explicit imports over wildcard imports
 - Use pathlib for file path operations instead of os.path
 - Implement proper exception handling with specific exception types
 - Use f-strings for string formatting in Python 3.6+
+- Use subprocess.run() with capture_output=True for external tools
+- Implement proper file handling for temporary files using tempfile module
+
+## Flask Web Application Guidelines
+- Use application factory pattern for Flask apps
+- Implement proper request validation for all endpoints
+- Use Flask Blueprints for modular code organization
+- Return standardized JSON responses with proper status codes
+- Implement error handling middleware for consistent error formatting
+- Use request context for thread-local storage of request data
+- Implement proper logging for all request/response cycles
+- Add security headers like CORS, Content-Security-Policy
+
+## MCP Protocol Implementation Guidelines
+- Follow JSON-RPC 2.0 specification for all methods
+- Implement required methods: initialize, tools/list, tools/call
+- Validate all incoming JSON against the schema
+- Return appropriate error codes for different failure scenarios
+- Provide helpful error messages for debugging
+- Implement proper timeout handling for tool execution
+- Create comprehensive logging of all operations
+- Use structured error response objects
 
 ## JavaScript/TypeScript Best Practices
 - Use TypeScript for all new JavaScript projects

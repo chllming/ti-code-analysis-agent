@@ -1,0 +1,59 @@
+# Optimized Dockerfile for Railway deployment
+FROM python:3.9-slim
+
+# Set environment variables
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=off \
+    PIP_DISABLE_PIP_VERSION_CHECK=on \
+    PORT=5001
+
+# Set working directory
+WORKDIR /app
+
+# Install system dependencies (including curl for healthcheck)
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    gcc \
+    curl \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy requirements file first for better caching
+COPY requirements.txt .
+
+# Create a non-root user and required directories
+RUN adduser --disabled-password --gecos "" appuser && \
+    mkdir -p /app/config /app/logs /tmp/mcp_temp && \
+    chown -R appuser:appuser /app /tmp/mcp_temp
+
+# Install Python dependencies
+RUN pip install --no-cache-dir -r requirements.txt gunicorn
+
+# Copy the application code
+COPY . .
+
+# Set file permissions
+RUN chown -R appuser:appuser /app
+
+# Switch to non-root user
+USER appuser
+
+# Expose the port (Railway will map it automatically)
+EXPOSE 5001
+
+# Default to production mode, can be overridden by Railway environment variables
+ENV MCP_HOST=0.0.0.0 \
+    MCP_PORT=5001 \
+    LOG_LEVEL=INFO \
+    FLAKE8_CONFIG=/app/config/flake8.ini \
+    TEMP_DIR=/tmp/mcp_temp \
+    ENABLE_JSON_LOGS=true \
+    ENABLE_METRICS=true
+
+# Command to run the server with gunicorn
+CMD gunicorn --bind 0.0.0.0:${PORT} --workers 4 --log-file - --access-logfile - src.mcp_server:app
+
+# Add a healthcheck to verify the server is running properly
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:${PORT}/health || exit 1 

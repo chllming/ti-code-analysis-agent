@@ -1,0 +1,34 @@
+version: '3.8'
+
+services:
+  mcp-server-dev:
+    build:
+      context: .
+      target: development
+    container_name: mcp-server-dev
+    ports:
+      - "5000:5000"
+    volumes:
+      - .:/app
+    environment:
+      - MCP_HOST=0.0.0.0
+      - MCP_PORT=5000
+      - LOG_LEVEL=DEBUG
+      - FLAKE8_CONFIG=/app/config/flake8.ini
+      - TEMP_DIR=/tmp/mcp_temp
+    command: python src/mcp_server.py
+    
+  tests:
+    build:
+      context: .
+      target: development
+    container_name: mcp-server-tests
+    volumes:
+      - .:/app
+    environment:
+      - MCP_HOST=0.0.0.0
+      - MCP_PORT=5000
+      - LOG_LEVEL=DEBUG
+      - FLAKE8_CONFIG=/app/config/flake8.ini
+      - TEMP_DIR=/tmp/mcp_temp
+    command: pytest tests/ -v 

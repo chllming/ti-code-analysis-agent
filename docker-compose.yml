@@ -61,6 +61,56 @@ services:
     #   - db
     #   - redis
 
+  mcp-server:
+    build:
+      context: .
+      target: development
+    container_name: mcp-server
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./src:/app/src
+      - ./config:/app/config
+      - ./logs:/app/logs
+    environment:
+      - MCP_HOST=0.0.0.0
+      - MCP_PORT=5000
+      - LOG_LEVEL=INFO
+      - FLAKE8_CONFIG=/app/config/flake8.ini
+      - TEMP_DIR=/tmp/mcp_temp
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
+
+  # Production service configuration
+  mcp-server-prod:
+    build:
+      context: .
+      target: production
+    container_name: mcp-server-prod
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./config:/app/config
+      - ./logs:/app/logs
+    environment:
+      - MCP_HOST=0.0.0.0
+      - MCP_PORT=5000
+      - LOG_LEVEL=INFO
+      - FLAKE8_CONFIG=/app/config/flake8.ini
+      - TEMP_DIR=/tmp/mcp_temp
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    profiles:
+      - prod
+    restart: unless-stopped
+
 # Uncomment if using persistent volumes
 # volumes:
 #   postgres_data:

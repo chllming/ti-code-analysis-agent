@@ -1,30 +1,31 @@
-# [TECHNOLOGY] Specific Guidelines
+# Python Specific Guidelines
 
 ## Architecture Guidelines
 
 ### Project Structure
-- Follow standard [TECHNOLOGY] project structure
+- Follow standard Python project structure with src/, tests/, and docs/ directories
 - Organize modules according to TI architecture pattern
 - Separate concerns: data, logic, and presentation layers
-- Use clear dependency management via [TECHNOLOGY-specific dependency tool]
+- Use proper dependency management via requirements.txt and virtual environments
 
 ### Design Patterns
 - Implement the observer pattern for event-driven components
 - Use dependency injection for modular and testable code
 - Apply the repository pattern for data access operations
 - Implement factory pattern for object creation when appropriate
+- Use the context manager pattern for resource management (especially file operations)
 
 ## Coding Conventions
 
 ### Naming Conventions
-- Use [camelCase/snake_case/PascalCase] for variables
-- Use [camelCase/snake_case/PascalCase] for function/method names
-- Use [camelCase/snake_case/PascalCase] for class names
-- Use [UPPER_SNAKE_CASE] for constants
-- Prefix private members with [_ or appropriate prefix]
+- Use snake_case for variables and function/method names
+- Use PascalCase for class names
+- Use UPPER_SNAKE_CASE for constants
+- Prefix private members with single underscore (_)
+- Follow PEP 8 style guidelines for all Python code
 
 ### Documentation
-- Document all public functions and classes using [TECHNOLOGY-specific doc format]
+- Document all public functions and classes using Google-style docstrings
 - Include examples in documentation for complex operations
 - Document side effects and return values
 - Use consistent tense and voice in comments
@@ -33,7 +34,7 @@
 ## Best Practices
 
 ### Error Handling
-- Use [TECHNOLOGY-specific error handling pattern]
+- Use try/except blocks with specific exceptions (avoid bare except)
 - Avoid silent failures
 - Log all errors with appropriate severity
 - Include useful debugging information in error messages
@@ -47,11 +48,11 @@
 - Profile code to identify bottlenecks
 
 ### Testing
-- Write unit tests for all public functions
-- Use [TECHNOLOGY-specific testing framework]
-- Mock external dependencies in tests
+- Write unit tests for all public functions using pytest
+- Use unittest.mock for mocking external dependencies
 - Test error conditions explicitly
-- Achieve at least 80% code coverage
+- Achieve at least 90% code coverage
+- Implement integration tests to verify component interactions
 
 ## Security Considerations
 
@@ -71,11 +72,35 @@
 
 ## Technology-Specific Libraries
 
+### Flask Application
+- Use Flask 2.0.0+ for web applications
+- Structure Flask applications with Application Factory pattern
+- Implement proper error handling middleware
+- Use Flask-specific security best practices (CORS, CSP)
+- Implement request validation using schemas
+
+### Flake8 Integration
+- Configure Flake8 with project-specific rule sets
+- Enforce consistent line length (88-100 characters)
+- Use .flake8 configuration file for project settings
+- Integrate with pre-commit hooks for automatic checks
+- Document any intentionally ignored rules with inline comments
+
+### MCP Protocol Implementation
+- Follow JSON-RPC 2.0 specification for all endpoints
+- Implement proper error codes and messages
+- Create comprehensive validation for all requests
+- Document all methods and parameters
+- Implement logging for all MCP operations
+
 ### Recommended Libraries
-- [Library 1]: For [purpose]
-- [Library 2]: For [purpose]
-- [Library 3]: For [purpose]
-- [Library 4]: For [purpose]
+- Flask: For web service development
+- Flake8: For code quality analysis
+- Black: For code formatting
+- Bandit: For security vulnerability analysis
+- pytest: For testing
+- requests: For HTTP client operations
+- pydantic: For data validation and settings management
 
 ### Library Usage Guidelines
 - Prefer established libraries over custom implementations
@@ -94,7 +119,7 @@
 - Include appropriate metrics and monitoring at integration boundaries
 
 ### Deployment Considerations
-- Package applications following [TECHNOLOGY] best practices
+- Package applications following Python best practices
 - Create slim container images
 - Support both development and production environments
 - Include health check endpoints
@@ -103,19 +128,25 @@
 ## Cursor AI Usage Tips
 
 ### Code Generation
-- Ask for [TECHNOLOGY]-specific implementations
+- Ask for Python-specific implementations
 - Request examples that follow TI architecture patterns
 - Use "Generate test for this function" to create comprehensive tests
-- Ask for documentation in [TECHNOLOGY] standard format
+- Ask for documentation in Google docstring format
 
 ### Code Analysis
-- Use "Review this code for [TECHNOLOGY] best practices" for feedback
+- Use "Review this code for Python best practices" for feedback
 - Request performance improvement suggestions
 - Ask for security vulnerability analysis
 - Get help with complex debugging scenarios
 
+### Flake8 Analysis Through MCP
+- Use "Run Flake8 analysis on this file" to check code quality
+- Ask for "Explain the Flake8 errors in this code"
+- Request "How can I fix these PEP 8 issues?"
+- Use "Check if this code follows Python style guidelines"
+
 ### Learning Resources
-- [Resource 1]: [Description]
-- [Resource 2]: [Description]
-- [Resource 3]: [Description]
-- [Resource 4]: [Description] 
+- [Python Official Documentation](https://docs.python.org/)
+- [Flask Documentation](https://flask.palletsprojects.com/)
+- [Flake8 Documentation](https://flake8.pycqa.org/)
+- [JSON-RPC 2.0 Specification](https://www.jsonrpc.org/specification) 

@@ -4,9 +4,9 @@
 ## Resources
 
 ### Official Documentation
-- [Primary language documentation](URL)
-- [Framework documentation](URL)
-- [Library documentation](URL)
+- [Flask Documentation](https://flask.palletsprojects.com/)
+- [Flake8 Documentation](https://flake8.pycqa.org/)
+- [JSON-RPC 2.0 Specification](https://www.jsonrpc.org/specification)
 
 ### TI Architecture References
 - [TI Architecture Overview](URL)
@@ -15,203 +15,318 @@
 - [Integration Guidelines](URL)
 
 ### API References
-- [External API 1 Documentation](URL)
-- [External API 2 Documentation](URL)
+- [MCP Protocol Specification](URL)
+- [Cursor MCP Integration](URL)
 
 ## Component Documentation
 
 ### Core Components
 
-#### Component1
-[Detailed description of Component1, its purpose, and how it works]
+#### MCP Server
+The MCP Server is a Flask-based implementation of the Model Command Protocol that enables Cursor IDE to interact with code analysis tools like Flake8. It follows the JSON-RPC 2.0 protocol to provide a standardized way to discover and execute tools.
 
 **Interfaces:**
 ```typescript
-interface Component1Config {
-  parameter1: string;
-  parameter2: number;
-  optional1?: boolean;
+interface MCPRequest {
+  jsonrpc: "2.0";
+  id: string | number;
+  method: string;
+  params?: Record<string, any>;
 }
 
-interface Component1Result {
-  status: string;
-  data: Record<string, any>;
-  timestamp: string;
+interface MCPResponse {
+  jsonrpc: "2.0";
+  id: string | number;
+  result?: any;
+  error?: {
+    code: number;
+    message: string;
+    data?: any;
+  };
 }
 ```
 
 **Usage Example:**
 ```python
 # Python example
-from ti_code-analysis_agent.component1 import Component1
+from flask import Flask, request, jsonify
 
-config = {
-    "parameter1": "value1",
-    "parameter2": 42
-}
-component = Component1(config)
-result = component.process(input_data)
+app = Flask(__name__)
+
+@app.route("/mcp", methods=["POST"])
+def mcp_endpoint():
+    req_data = request.json
+    # Process the MCP request
+    # ...
+    return jsonify({
+        "jsonrpc": "2.0",
+        "id": req_data.get("id"),
+        "result": result_data
+    })
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=5000)
 ```
 
-#### Component2
-[Detailed description of Component2, its purpose, and how it works]
+#### Flake8 Integration
+This component integrates the Flake8 linter into the MCP server, allowing Cursor to request Python code analysis and receive standardized results. It handles secure file operations and formats the output according to the MCP protocol.
 
 **Interfaces:**
 ```typescript
-interface Component2Config {
-  setting1: string;
-  setting2: number[];
+interface Flake8Request {
+  code: string;
+  filename?: string;
+  config?: {
+    maxLineLength?: number;
+    ignoredRules?: string[];
+  };
 }
 
-interface Component2Result {
-  output1: string;
-  output2: number;
-  metadata: Record<string, any>;
+interface Flake8Result {
+  issues: Array<{
+    file: string;
+    line: number;
+    column: number;
+    code: string;
+    message: string;
+  }>;
+  summary: {
+    totalIssues: number;
+    filesAnalyzed: number;
+  };
 }
 ```
 
 **Usage Example:**
 ```python
 # Python example
-from ti_code-analysis_agent.component2 import Component2
+import tempfile
+import subprocess
+import json
+from pathlib import Path
 
-component = Component2({"setting1": "value", "setting2": [1, 2, 3]})
-result = component.analyze(data)
+def run_flake8_analysis(code, filename="temp.py", config=None):
+    with tempfile.TemporaryDirectory() as temp_dir:
+        temp_path = Path(temp_dir) / filename
+        temp_path.write_text(code)
+        
+        cmd = ["flake8", str(temp_path), "--format=json"]
+        
+        if config and "maxLineLength" in config:
+            cmd.extend(["--max-line-length", str(config["maxLineLength"])])
+            
+        if config and "ignoredRules" in config:
+            cmd.extend(["--ignore", ",".join(config["ignoredRules"])])
+        
+        result = subprocess.run(cmd, capture_output=True, text=True)
+        
+        # Parse and format the output
+        flake8_output = json.loads(result.stdout)
+        return format_flake8_results(flake8_output, filename)
 ```
 
 ### Integration Interfaces
 
-#### Integration with Component X
-[Description of how this component integrates with Component X]
+#### Integration with Cursor IDE
+The MCP server integrates with Cursor IDE through the MCP protocol, allowing users to run code analysis tools using natural language commands.
 
 **Integration Points:**
-- [Point 1]: [Description]
-- [Point 2]: [Description]
+- **MCP Endpoint**: Exposes `/mcp` endpoint that Cursor connects to
+- **Tool Discovery**: Implements `tools/list` method for tool discovery
+- **Tool Execution**: Implements `tools/call` method for executing analysis
 
 **Interface Definition:**
 ```typescript
-interface IntegrationRequest {
-  action: string;
-  parameters: Record<string, any>;
-  metadata: {
-    requestId: string;
-    timestamp: string;
+interface MCPToolsListRequest {
+  jsonrpc: "2.0";
+  id: string | number;
+  method: "tools/list";
+}
+
+interface MCPToolsListResponse {
+  jsonrpc: "2.0";
+  id: string | number;
+  result: {
+    tools: Array<{
+      name: string;
+      description: string;
+      version: string;
+      capabilities: string[];
+    }>;
   };
 }
 
-interface IntegrationResponse {
-  status: 'success' | 'error';
-  data?: Record<string, any>;
-  error?: {
-    code: string;
-    message: string;
+interface MCPToolsCallRequest {
+  jsonrpc: "2.0";
+  id: string | number;
+  method: "tools/call";
+  params: {
+    name: string;
+    args: Record<string, any>;
   };
 }
 ```
 
 **Example Flow:**
-1. [Description of step 1]
-2. [Description of step 2]
-3. [Description of step 3]
+1. User enters a command in Cursor: "Run Flake8 analysis on this file"
+2. Cursor sends a `tools/call` request to the MCP server
+3. Server executes Flake8 on the specified code
+4. Server formats and returns the analysis results
+5. Cursor displays the results to the user
 
 ## Design Patterns
 
-### Pattern 1: [Name]
-[Description of the design pattern and when to use it]
+### Pattern 1: JSON-RPC Protocol
+The MCP server follows the JSON-RPC 2.0 protocol for standardized communication with Cursor IDE.
 
 **Implementation Example:**
 ```python
 # Python implementation example
-class ConcreteImplementation:
-    def __init__(self):
-        # Implementation details
-        pass
+def handle_jsonrpc_request(request_data):
+    """Handle a JSON-RPC 2.0 request."""
+    # Validate JSON-RPC format
+    if "jsonrpc" not in request_data or request_data["jsonrpc"] != "2.0":
+        return {
+            "jsonrpc": "2.0",
+            "id": request_data.get("id", None),
+            "error": {
+                "code": -32600,
+                "message": "Invalid Request"
+            }
+        }
+    
+    # Extract method and params
+    method = request_data.get("method")
+    params = request_data.get("params", {})
+    
+    # Call the appropriate method handler
+    try:
+        if method == "initialize":
+            result = handle_initialize()
+        elif method == "tools/list":
+            result = handle_tools_list()
+        elif method == "tools/call":
+            result = handle_tools_call(params)
+        else:
+            return {
+                "jsonrpc": "2.0",
+                "id": request_data.get("id"),
+                "error": {
+                    "code": -32601,
+                    "message": "Method not found"
+                }
+            }
         
-    def method(self):
-        # Method implementation
-        pass
+        # Return successful response
+        return {
+            "jsonrpc": "2.0",
+            "id": request_data.get("id"),
+            "result": result
+        }
+    except Exception as e:
+        # Handle errors
+        return {
+            "jsonrpc": "2.0",
+            "id": request_data.get("id"),
+            "error": {
+                "code": -32000,
+                "message": str(e)
+            }
+        }
 ```
 
-### Pattern 2: [Name]
-[Description of the design pattern and when to use it]
+### Pattern 2: Temporary File Management
+The MCP server uses a secure pattern for handling temporary files during code analysis.
 
 **Implementation Example:**
 ```python
 # Python implementation example
-class AnotherPattern:
-    def __init__(self, dependency):
-        self.dependency = dependency
-        
-    def execute(self, input_data):
-        # Implementation
-        result = self.dependency.process(input_data)
-        return self.transform(result)
-        
-    def transform(self, data):
-        # Implementation
-        return transformed_data
+import tempfile
+import os
+from contextlib import contextmanager
+
+@contextmanager
+def secure_temp_file(code, filename="temp.py"):
+    """Create a secure temporary file with the given code."""
+    try:
+        # Create a temporary directory
+        with tempfile.TemporaryDirectory() as temp_dir:
+            # Create a file path
+            temp_path = os.path.join(temp_dir, filename)
+            
+            # Write the code to the file
+            with open(temp_path, "w") as f:
+                f.write(code)
+            
+            # Yield the file path to the caller
+            yield temp_path
+    finally:
+        # The contextmanager ensures cleanup even if exceptions occur
+        pass
 ```
 
 ## Docker Configuration
 
 ### Container Structure
-[Description of the Docker container structure and key components]
+The MCP server is containerized for easy deployment and consistent execution environments. The Docker container includes the Flask server, Flake8, and all necessary dependencies.
 
 ### Environment Variables
 | Variable | Description | Default | Required |
 |----------|-------------|---------|----------|
-| `VAR_1` | [Description] | `default_value` | Yes/No |
-| `VAR_2` | [Description] | `default_value` | Yes/No |
-| `VAR_3` | [Description] | None | Yes/No |
+| `MCP_PORT` | Port for the MCP server | `5000` | No |
+| `MCP_HOST` | Host to bind the server to | `0.0.0.0` | No |
+| `LOG_LEVEL` | Logging level (DEBUG, INFO, WARNING, ERROR) | `INFO` | No |
+| `FLAKE8_CONFIG` | Path to Flake8 config file | None | No |
 
 ### Volume Mounts
 | Mount Point | Purpose | Persistence |
 |-------------|---------|-------------|
-| `/app/data` | [Description] | Yes/No |
-| `/app/config` | [Description] | Yes/No |
+| `/app/config` | Configuration files for the MCP server and tools | Yes |
+| `/app/logs` | Log files | Yes |
 
 ### Network Configuration
-[Description of network configuration, ports, and connectivity]
+The MCP server exposes port 5000 (by default) for the HTTP API. This must be accessible from the machine running Cursor IDE.
 
 ## Performance Considerations
-- [Consideration 1]: [Description and mitigation]
-- [Consideration 2]: [Description and mitigation]
-- [Consideration 3]: [Description and mitigation]
+- **Caching**: Implement result caching to avoid redundant analysis of unchanged code.
+- **File Size Limits**: Set reasonable limits for file sizes to prevent resource exhaustion.
+- **Asynchronous Processing**: Use async processing for handling multiple concurrent requests.
 
 ## Security Considerations
-- [Consideration 1]: [Description and mitigation]
-- [Consideration 2]: [Description and mitigation]
-- [Consideration 3]: [Description and mitigation]
+- **Code Isolation**: All analyzed code is kept in isolated temporary directories.
+- **Input Validation**: Validate all inputs to prevent injection attacks.
+- **Resource Limits**: Set timeouts and resource limits for tool execution.
+- **Temporary File Cleanup**: Ensure all temporary files are securely deleted after analysis.
 
 ## Troubleshooting
 
 ### Common Issues
 
-#### Issue 1: [Description]
+#### Issue 1: MCP Server Connection Failures
 **Symptoms:**
-- [Symptom 1]
-- [Symptom 2]
+- "Connection refused" errors in Cursor
+- Timeout errors when attempting to use code analysis tools
 
 **Resolution:**
-1. [Step 1]
-2. [Step 2]
-3. [Step 3]
+1. Verify the MCP server is running: `docker ps` or `ps aux | grep mcp_server`
+2. Check network connectivity between Cursor and the MCP server
+3. Verify the port configuration matches in both Cursor settings and the MCP server
 
-#### Issue 2: [Description]
+#### Issue 2: Incorrect Flake8 Results
 **Symptoms:**
-- [Symptom 1]
-- [Symptom 2]
+- Missing linting errors in results
+- Unexpected linting errors being reported
 
 **Resolution:**
-1. [Step 1]
-2. [Step 2]
-3. [Step 3]
+1. Check the Flake8 configuration file for any custom rules
+2. Verify the Python version compatibility between the code and the Flake8 environment
+3. Try running Flake8 directly on the file to compare results
 
 ### Logging
-[Description of logging system, log levels, and how to access logs]
+The MCP server uses structured logging with configurable log levels. Logs are output to both the console and log files in the `/app/logs` directory when using Docker.
 
 ### Monitoring
-[Description of monitoring capabilities and integration with observability tools]
+The MCP server provides a `/health` endpoint for monitoring its status. It returns HTTP 200 with basic health metrics when the server is operational.
 
 ## Cursor IDE Integration
 
@@ -226,7 +341,7 @@ The project includes a pre-configured Cursor setup with:
   - Architecture Guidelines
   - Cursor Optimization Guidelines
   - Code Quality Guidelines
-  - Language-Specific Guidelines for python
+  - Language-Specific Guidelines for Python
 
 - **Settings**: The `.cursor/settings.json` file contains optimized settings for:
   - AI model configuration
@@ -248,24 +363,12 @@ To use Cursor with this project:
 2. Open this project in Cursor
 3. Run `./scripts/setup-cursor.sh` to update your local Cursor configuration
 4. Use ⌘+I (macOS) or Ctrl+I (Windows/Linux) to open Composer
-5. Refer to `CURSOR.md` and `docs/cursor_best_practices.md` for detailed guidance
 
-### Supported AI Workflows
-The project supports the following AI-assisted workflows:
+#### Using Code Analysis Tools in Cursor
+Once the MCP server is running and configured in Cursor, you can use natural language prompts to access code analysis features:
 
-- **Code Generation**: Request new components that follow TI architecture
-- **Documentation**: Generate or update documentation based on codebase
-- **Testing**: Generate test cases based on implementation
-- **Refactoring**: Improve existing code while maintaining behavior
-- **Debugging**: Analyze and fix issues with interactive guidance
-
-### Maintenance
-To update Cursor rules and configuration:
-
-```bash
-# Update to the latest cursor rules from ti-templates
-./scripts/update-cursor-rules.sh
-
-# Validate your cursor setup
-./scripts/test-cursor-setup.sh
-```
+- **Flake8 Analysis**: "Run Flake8 analysis on this file" or "Check this Python code for style issues"
+- **Detailed Review**: "Analyze @src/module.py with Flake8 and explain any issues found"
+- **Future Tools**:
+  - **Black Formatting**: "Format this code using Black for consistent style"
+  - **Security Analysis**: "Run Bandit security analysis on this file to check for vulnerabilities"

@@ -1,0 +1,6 @@
+2025-03-06 14:10:14,935 - mcp_server - INFO - Temporary directory set up at /tmp/mcp_temp
+2025-03-06 14:10:14,935 - mcp_server - INFO - Starting MCP Server on 0.0.0.0:5001
+ * Serving Flask app 'src.mcp_server'
+ * Debug mode: on
+Address already in use
+Port 5001 is in use by another program. Either identify and stop that program, or start the server with a different port.

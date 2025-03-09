@@ -1,0 +1,29 @@
+[build]
+# Specify that we're using a Dockerfile for builds
+builder = "DOCKERFILE"
+# Use our optimized Railway Dockerfile
+dockerfilePath = "Dockerfile.railway"
+
+[deploy]
+# Configure health check endpoint
+healthcheckPath = "/health"
+healthcheckTimeout = 10
+# Configure restart policy
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 5
+# Configure number of CPU cores and memory
+numReplicas = 2
+
+# Resource allocation for each replica
+[deploy.resources]
+cpu = 0.5
+memory = 512
+disk = 1024  # 1GB disk space
+
+# Configure production environment variables, these will be merged with environment variables set in the Railway dashboard
+[deploy.env]
+LOG_LEVEL = "INFO"
+FLAKE8_CONFIG = "/app/config/flake8.ini"
+TEMP_DIR = "/tmp/mcp_temp"
+ENABLE_JSON_LOGS = "true"
+ENABLE_METRICS = "true" 

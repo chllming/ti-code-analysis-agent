@@ -1,45 +1,116 @@
-# Docker Guidelines
+# Docker Guidelines for MCP Server
 
-## Docker Best Practices
-- Use multi-stage builds to minimize image size
-- Follow the principle of least privilege
-- Use specific version tags for base images (avoid `latest` tag)
-- Order Dockerfile commands for optimal layer caching
-- Include proper labels and metadata
-- Run containers as non-root users
-- Set appropriate file permissions
-- Scan images for vulnerabilities
-- Minimize installed packages
-- Use secrets management for sensitive data
-- Never store credentials in Docker images
+## Container Design
 
-## Base Image Selection
-- Use official images when possible
-- Use slim or alpine variants to reduce image size
-- Pin specific versions (avoid `latest` tag)
-- Use distroless images for production when appropriate
-- Document base image selection rationale
+### Base Image Selection
+- Use official Python slim images as base (e.g., python:3.9-slim)
+- Prefer Alpine-based images for production when compatible with dependencies
+- Pin specific image versions to ensure reproducibility
+- Avoid using latest tags in production deployments
+- Document the reason for specific base image selection
 
-## Environment Configuration
-- Use environment variables for all configuration
-- Provide sensible defaults where appropriate
-- Use .env files for local development only
-- Follow 12-factor app principles for configuration
-- Pass secrets via environment variables or dedicated secrets management
-- Document all required environment variables
-
-## Docker Compose Usage
-- Use Docker Compose for local development
-- Define service dependencies clearly
-- Use volumes for persistent data
-- Configure networks appropriately
-- Set resource limits for containers
-- Use health checks for service dependencies
-
-## Build Optimization
-- Leverage build cache effectively
-- Group related RUN commands with && to reduce layers
-- Clean up package manager caches in the same layer
+### Layer Optimization
+- Order Dockerfile instructions to maximize layer caching
+- Group related RUN commands to reduce layer count
 - Use .dockerignore to exclude unnecessary files
-- Minimize the number of layers
-- Only copy necessary files into the container 
+- Copy requirements.txt first, then install dependencies
+- Copy application code last to maximize caching
+
+### Multi-stage Builds
+- Use multi-stage builds to separate build dependencies from runtime
+- Create a development stage with debugging tools
+- Create a production stage with minimal dependencies
+- Use target flags during build to select environment (--target development)
+- Share common setup between stages where appropriate
+
+## Best Practices
+
+### Security
+- Run containers as non-root user
+- Remove default passwords and set proper permissions
+- Scan images for vulnerabilities before deployment
+- Never store secrets in Docker images
+- Use environment variables or mounted secrets for credentials
+
+### Environment Configuration
+- Use environment variables for configuration
+- Provide sensible defaults for non-sensitive settings
+- Document all required and optional environment variables
+- Use .env.example file as a template for required variables
+- Implement configuration validation on startup
+
+### Resource Management
+- Set appropriate memory and CPU limits
+- Configure proper graceful shutdown timers
+- Implement health checks for container orchestration
+- Use restart policies appropriate for the service
+- Handle SIGTERM signals properly
+
+## MCP Server Specific Guidelines
+
+### Flask Application Container
+- Configure Flask to run with gunicorn or uwsgi in production
+- Set proper worker count based on CPU availability
+- Disable Flask development server in production
+- Configure proper logging to container output
+- Set appropriate timeout values for long-running operations
+
+### Tool Integration
+- Install Flake8 and other analysis tools during container build
+- Verify tool versions and compatibility
+- Configure tools with project-specific settings
+- Include healthcheck that verifies tool availability
+- Document any tool-specific environment variables
+
+### Volume Management
+- Mount configuration files as volumes for easy updates
+- Use volumes for persistent logs if needed
+- Create dedicated volume for temporary file operations
+- Ensure proper permissions on mounted volumes
+- Clean up temporary files via container lifecycle hooks
+
+## Docker Compose Configuration
+
+### Service Definition
+- Define all required services in docker-compose.yml
+- Set appropriate container names for easy reference
+- Configure proper network settings and port mapping
+- Set dependencies between services with depends_on
+- Define resource limits in compose configuration
+
+### Environment Setup
+- Use .env file for local development configuration
+- Create separate compose files for different environments
+- Use docker-compose.override.yml for local customizations
+- Document required environment variables
+- Implement validation for required variables
+
+### Testing and Development
+- Create dedicated testing configuration in docker-compose.test.yml
+- Configure development tools in development environment
+- Mount code volumes for hot reloading in development
+- Configure debugging ports when needed
+- Use profiles to group services for different purposes
+
+## CI/CD Integration
+
+### Build Process
+- Automate image building in CI pipeline
+- Tag images with git commit SHA and semantic version
+- Run automated tests against built containers
+- Scan images for vulnerabilities before pushing
+- Use build caching to speed up CI process
+
+### Deployment
+- Use container registry for image distribution
+- Implement proper tagging strategy (latest, stable, semver)
+- Document deployment prerequisites
+- Provide deployment scripts or instructions
+- Implement blue/green or rolling update strategy
+
+### Monitoring
+- Set up container health monitoring
+- Configure log aggregation from containers
+- Implement metrics collection
+- Set up container restart policies
+- Create alerting for container issues 

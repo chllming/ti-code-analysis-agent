@@ -89,10 +89,10 @@
       "useToolBarLayout": true
     },
     "tailoredIntelligence": {
-      "projectType": "[TYPE]",
-      "component": "[COMPONENT_NAME]",
-      "technology": "[TECHNOLOGY]",
-      "version": "[VERSION]"
+      "projectType": "API",
+      "component": "MCP Server",
+      "technology": "Python",
+      "version": "1.0.0"
     }
   }
 } 

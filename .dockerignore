@@ -1,7 +1,7 @@
 # Git
 .git
 .gitignore
-.github
+.github/
 
 # Docker
 .docker
@@ -29,6 +29,7 @@ dist/
 downloads/
 eggs/
 .eggs/
+lib/
 lib64/
 parts/
 sdist/
@@ -37,10 +38,54 @@ wheels/
 *.egg-info/
 .installed.cfg
 *.egg
+
+# Testing
 .pytest_cache/
 .coverage
 htmlcov/
 .tox/
+.nox/
+.hypothesis/
+coverage.xml
+*.cover
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.pyre/
+.pytype/
+
+# Virtual environments
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Local development files
+.env
+.env.*
+!.env.example
+*.log
+logs/*
+!logs/.gitkeep
+*.db
+*.sqlite3
+
+# Documentation and samples
+docs/
+*.md
+!README.md
+test_*.py
+complete_mcp_test.py
+*.ipynb
+
+# Editor files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
 
 # Node.js
 node_modules/
