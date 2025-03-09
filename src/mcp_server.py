@@ -296,7 +296,7 @@ def mcp_endpoint() -> Response:
     # Track request in metrics
     request_id = str(uuid.uuid4())
     g.request_id = request_id
-    metrics_store.start_request(request_id, request.path, request.method)
+    metrics_store.start_request(request_id, request.method)
     
     # Process the request
     try:
