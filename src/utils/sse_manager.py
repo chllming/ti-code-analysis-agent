@@ -10,6 +10,8 @@ import queue
 import threading
 import time
 import uuid
+import os
+import pickle
 from typing import Dict, Any, Optional, List, Set
 
 # Configure logger
@@ -170,5 +172,5 @@ class SSEManager:
         return message
 
 
-# Create a singleton instance
+# Create a shared instance
 sse_manager = SSEManager() 

@@ -428,7 +428,8 @@ def sse_connect() -> Response:
             except Exception as e:
                 logger.exception(f"Error in SSE stream for {client_id}: {str(e)}")
             finally:
-                # Clean up the client
+                # Mark the client as disconnected but don't remove it yet
+                # This allows for a grace period where the client can still receive messages
                 sse_manager.unregister_client(client_id)
                 # Record completion of the SSE connection
                 metrics_store.end_request(request_id, 200)
