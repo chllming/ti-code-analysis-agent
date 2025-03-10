@@ -9,6 +9,7 @@ for Cursor IDE to discover and execute code analysis tools like Flake8.
 import json
 import logging
 import os
+import sys
 import uuid
 from typing import Any, Dict, List, Optional, Union
 
@@ -63,6 +64,16 @@ ERROR_METHOD_NOT_FOUND = -32601
 ERROR_INVALID_PARAMS = -32602
 ERROR_INTERNAL_ERROR = -32603
 
+# Initialize SSE JSON-RPC handler with our handler function
+def init_sse_jsonrpc_handler():
+    """Initialize the SSE JSON-RPC handler."""
+    global sse_jsonrpc_handler
+    if sse_jsonrpc_handler is None:
+        sse_jsonrpc_handler = SSEJsonRpcHandler(handle_jsonrpc)
+        logger.info("SSE JSON-RPC handler initialized")
+
+# Initialize the handler immediately
+init_sse_jsonrpc_handler()
 
 @app.before_request
 def before_request():
@@ -482,10 +493,8 @@ def sse_message(client_id: str) -> Response:
 
 def init_app():
     """Initialize the application with all necessary components."""
-    global sse_jsonrpc_handler
-    
-    # Initialize SSE JSON-RPC handler with our existing handler function
-    sse_jsonrpc_handler = SSEJsonRpcHandler(handle_jsonrpc)
+    # Ensure SSE JSON-RPC handler is initialized
+    init_sse_jsonrpc_handler()
     
     logger.info("MCP Server initialized with SSE support")
     return app
