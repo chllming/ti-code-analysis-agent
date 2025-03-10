@@ -1,0 +1,52 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# Cursor AI Optimization Guidelines
+
+You are using Cursor AI to assist with TI project development. This guide helps you interact effectively with the AI to produce high-quality code.
+
+## Effective AI Prompting
+
+- Begin with clear context about what you're building
+- Break complex tasks into smaller steps
+- Reference existing files using @ syntax:
+  ```
+  @src/api/user.py - Review this User API implementation
+  ```
+- Specify constraints and requirements upfront:
+  ```
+  Create a Python function that validates user input according to 
+  our security guidelines in 04-code-quality.mdc
+  ```
+
+## AI-Generated Code Requirements
+
+- All code you generate must:
+  - Follow TI style guides
+  - Include proper error handling
+  - Be documented (functions, classes, modules)
+  - Be testable and include tests when appropriate
+
+- DO NOT generate code that:
+  - Hardcodes credentials
+  - Uses deprecated libraries
+  - Creates security vulnerabilities
+  - Violates architectural patterns
+
+## Using Cursor Effectively
+
+- For debugging: Provide error messages and expected behavior
+- For refactoring: Specify the exact patterns to follow
+- For new features: Reference similar existing implementations
+- For learning: Ask for explanations of complex code sections
+
+## Best Practices for AI Collaboration
+
+- Always review generated code before committing
+- Use AI for generating test cases
+- Request alternatives when initial solutions don't fully align with requirements
+- Leverage AI for documenting complex logic
+
+For more information on specific language usage, see the language-specific guides (06-python-specific.mdc, 06-node-specific.mdc).

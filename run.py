@@ -8,7 +8,7 @@ This script runs the MCP server as a Python module, which helps with import path
 import os
 import sys
 
-from src.mcp_server import app, MCP_HOST, MCP_PORT, LOG_LEVEL, logger
+from src.mcp_server import app, MCP_HOST, MCP_PORT, LOG_LEVEL, logger, init_app
 from src.utils.file_handler import TempFileManager
 
 def main():
@@ -16,6 +16,10 @@ def main():
     # Set up the temporary directory
     TempFileManager.setup_temp_directory()
     logger.info(f"Temporary directory set up at {os.getenv('TEMP_DIR', '/tmp/mcp_temp')}")
+    
+    # Initialize the application with SSE support
+    init_app()
+    logger.info("MCP Server initialized with SSE support")
     
     # Start server
     logger.info(f"Starting MCP Server on {MCP_HOST}:{MCP_PORT}")

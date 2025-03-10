@@ -1,3 +1,8 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
 # Docker Guidelines for MCP Server
 
 ## Container Design

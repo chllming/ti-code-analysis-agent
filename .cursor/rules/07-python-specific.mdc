@@ -1,3 +1,8 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
 # Python Specific Guidelines
 
 ## Architecture Guidelines
@@ -146,7 +151,7 @@
 - Use "Check if this code follows Python style guidelines"
 
 ### Learning Resources
-- [Python Official Documentation](https://docs.python.org/)
-- [Flask Documentation](https://flask.palletsprojects.com/)
-- [Flake8 Documentation](https://flake8.pycqa.org/)
-- [JSON-RPC 2.0 Specification](https://www.jsonrpc.org/specification) 
+- [Python Official Documentation](mdc:https:/docs.python.org)
+- [Flask Documentation](mdc:https:/flask.palletsprojects.com)
+- [Flake8 Documentation](mdc:https:/flake8.pycqa.org)
+- [JSON-RPC 2.0 Specification](mdc:https:/www.jsonrpc.org/specification) 

@@ -13,7 +13,7 @@ import uuid
 from typing import Any, Dict, List, Optional, Union
 
 from dotenv import load_dotenv
-from flask import Flask, Response, jsonify, request, g, current_app
+from flask import Flask, Response, jsonify, request, g, current_app, stream_with_context
 
 from .utils.jsonrpc import validate_jsonrpc_request
 from .utils.file_handler import TempFileManager
@@ -22,6 +22,8 @@ from .utils.black_runner import format_code, check_formatting
 from .utils.bandit_runner import analyze_code as bandit_analyze_code
 from .utils.structured_logging import configure_logging, LoggingMiddleware
 from .utils.metrics import get_metrics_store
+from .utils.sse_manager import sse_manager
+from .utils.sse_jsonrpc_handler import SSEJsonRpcHandler, sse_jsonrpc_handler
 
 # Load environment variables
 load_dotenv()
@@ -42,6 +44,7 @@ app = Flask(__name__)
 MCP_HOST = os.getenv("MCP_HOST", "0.0.0.0")
 MCP_PORT = int(os.getenv("MCP_PORT", "5000"))
 TEMP_DIR = os.getenv("TEMP_DIR", "/tmp/mcp_temp")
+SSE_HEARTBEAT_INTERVAL = int(os.getenv("SSE_HEARTBEAT_INTERVAL", "30"))
 
 # Apply logging middleware
 app.wsgi_app = LoggingMiddleware(app.wsgi_app, logger)
@@ -88,7 +91,7 @@ def after_request(response):
     # Add CORS headers to allow Cursor to communicate with the server
     response.headers.add('Access-Control-Allow-Origin', '*')
     response.headers.add('Access-Control-Allow-Headers', 'Content-Type')
-    response.headers.add('Access-Control-Allow-Methods', 'POST, OPTIONS')
+    response.headers.add('Access-Control-Allow-Methods', 'POST, OPTIONS, GET')
     
     return response
 
@@ -339,7 +342,135 @@ def metrics() -> Response:
     return jsonify(metrics_store.get_metrics())
 
 
+@app.route('/sse', methods=['GET'])
+def sse_connect() -> Response:
+    """
+    Establish an SSE connection for bidirectional communication.
+    This endpoint allows Cursor IDE to connect via SSE for real-time
+    communication using the JSON-RPC protocol.
+    """
+    # Register a new client
+    client_id = sse_manager.register_client()
+    logger.info(f"New SSE connection established: {client_id}")
+    
+    # Add this connection to metrics
+    metrics_store.increment_counter("sse_connections_total")
+    metrics_store.set_gauge("sse_connections_active", len(sse_manager.clients))
+    
+    @stream_with_context
+    def event_stream():
+        """Generate SSE event stream for this client."""
+        # Send initial connection message
+        connection_message = sse_manager.format_sse_message(
+            json.dumps({"status": "connected", "clientId": client_id}),
+            event="connection"
+        )
+        yield connection_message
+        
+        # Loop to send messages from the queue and heartbeats
+        try:
+            client = sse_manager.get_client(client_id)
+            if not client:
+                logger.error(f"Client {client_id} not found after registration")
+                return
+                
+            heartbeat_count = 0
+            
+            while client.connected:
+                # Check for messages with a timeout
+                message = client.get_message(timeout=SSE_HEARTBEAT_INTERVAL)
+                
+                if message:
+                    # We have a message to send
+                    sse_message = sse_manager.format_sse_message(
+                        message["data"],
+                        event=message["event"]
+                    )
+                    yield sse_message
+                else:
+                    # No message, send heartbeat
+                    heartbeat_count += 1
+                    heartbeat = sse_manager.format_sse_message(
+                        json.dumps({"type": "heartbeat", "count": heartbeat_count}),
+                        event="heartbeat"
+                    )
+                    yield heartbeat
+        
+        except GeneratorExit:
+            # Client disconnected
+            logger.info(f"SSE client disconnected: {client_id}")
+        except Exception as e:
+            logger.exception(f"Error in SSE stream for {client_id}: {str(e)}")
+        finally:
+            # Clean up the client
+            sse_manager.unregister_client(client_id)
+            metrics_store.set_gauge("sse_connections_active", len(sse_manager.clients))
+
+    # Configure the response as an event stream
+    response = Response(event_stream(), mimetype="text/event-stream")
+    response.headers.add('Cache-Control', 'no-cache')
+    response.headers.add('Connection', 'keep-alive')
+    response.headers.add('X-Accel-Buffering', 'no')  # Disable buffering for nginx
+    return response
+
+
+@app.route('/sse/<client_id>', methods=['POST'])
+def sse_message(client_id: str) -> Response:
+    """
+    Handle incoming messages from SSE clients.
+    This endpoint allows clients to send JSON-RPC requests over HTTP
+    while receiving responses via the SSE connection.
+    """
+    # Verify the client exists
+    client = sse_manager.get_client(client_id)
+    if not client:
+        logger.warning(f"Message received for unknown client: {client_id}")
+        return jsonify({"status": "error", "message": "Unknown client ID"}), 404
+    
+    # Process the message
+    try:
+        if not request.is_json:
+            logger.warning(f"Non-JSON message received from client {client_id}")
+            return jsonify({"status": "error", "message": "Message must be JSON"}), 400
+        
+        # Get the message content
+        message_data = request.get_json()
+        
+        # Handle JSON-RPC message
+        if isinstance(message_data, dict) and "jsonrpc" in message_data:
+            # Process JSON-RPC request and send response via SSE
+            global sse_jsonrpc_handler
+            if sse_jsonrpc_handler:
+                sse_jsonrpc_handler.process_message(client_id, json.dumps(message_data))
+                return jsonify({"status": "processing"})
+            else:
+                logger.error("SSE JSON-RPC handler not initialized")
+                return jsonify({"status": "error", "message": "Server configuration error"}), 500
+        else:
+            # Unknown message format
+            logger.warning(f"Unknown message format from client {client_id}")
+            return jsonify({"status": "error", "message": "Unknown message format"}), 400
+    
+    except Exception as e:
+        logger.exception(f"Error processing message from client {client_id}: {str(e)}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+def init_app():
+    """Initialize the application with all necessary components."""
+    global sse_jsonrpc_handler
+    
+    # Initialize SSE JSON-RPC handler with our existing handler function
+    sse_jsonrpc_handler = SSEJsonRpcHandler(handle_jsonrpc)
+    
+    logger.info("MCP Server initialized with SSE support")
+    return app
+
+
 if __name__ == "__main__":
+    # Initialize the application
+    init_app()
+    
     # Start server
     logger.info(f"Starting MCP Server on {MCP_HOST}:{MCP_PORT}")
     app.run(host=MCP_HOST, port=MCP_PORT, debug=(LOG_LEVEL.upper() == "DEBUG")) 
