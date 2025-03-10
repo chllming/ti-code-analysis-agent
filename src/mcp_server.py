@@ -160,13 +160,14 @@ def handle_tools_list() -> Dict[str, Any]:
 
 def handle_tools_call(params: Dict[str, Any]) -> Dict[str, Any]:
     """Handle the tools/call method."""
-    tool_name = params.get("name")
+    # Support both 'name' and 'tool' parameters for flexibility
+    tool_name = params.get("name") or params.get("tool")
     tool_args = params.get("args", {})
     
     logger.info(f"Handling tools/call method for tool: {tool_name}")
     
-    # Extract code from arguments
-    code = tool_args.get("code")
+    # Extract code from arguments (either directly in params or inside args)
+    code = tool_args.get("code") or params.get("code")
     if not code:
         logger.warning("No code provided for analysis")
         return {"status": "error", "message": "No code provided for analysis"}

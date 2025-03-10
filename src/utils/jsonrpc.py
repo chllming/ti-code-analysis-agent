@@ -38,11 +38,18 @@ TOOLS_LIST_METHOD_SCHEMA = {
 # Schema for the tools/call method
 TOOLS_CALL_METHOD_SCHEMA = {
     "type": "object",
-    "required": ["name", "args"],
     "properties": {
-        "name": {"type": "string", "minLength": 1},
+        "name": {"type": "string"},
+        "tool": {"type": "string"},
         "args": {"type": "object"},
+        "code": {"type": "string"}
     },
+    "anyOf": [
+        {"required": ["name", "args"]},
+        {"required": ["tool", "args"]},
+        {"required": ["name", "code"]},
+        {"required": ["tool", "code"]}
+    ]
 }
 
 # Map of method names to their parameter schemas
