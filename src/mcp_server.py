@@ -14,6 +14,7 @@ from typing import Any, Dict, List, Optional, Union
 
 from dotenv import load_dotenv
 from flask import Flask, Response, jsonify, request, g, current_app, stream_with_context
+from flask_cors import CORS
 
 from .utils.jsonrpc import validate_jsonrpc_request
 from .utils.file_handler import TempFileManager
@@ -39,6 +40,9 @@ logger = configure_logging(
 
 # Set up Flask app
 app = Flask(__name__)
+
+# Enable CORS for all routes
+CORS(app, resources={r"/*": {"origins": "*"}})
 
 # Configure from environment
 MCP_HOST = os.getenv("MCP_HOST", "0.0.0.0")
@@ -349,70 +353,89 @@ def sse_connect() -> Response:
     This endpoint allows Cursor IDE to connect via SSE for real-time
     communication using the JSON-RPC protocol.
     """
-    # Register a new client
-    client_id = sse_manager.register_client()
-    logger.info(f"New SSE connection established: {client_id}")
-    
-    # Add this connection to metrics - using request tracking instead of counter
-    request_id = str(uuid.uuid4())
-    metrics_store.start_request(request_id, "SSE_CONNECT")
-    
-    @stream_with_context
-    def event_stream():
-        """Generate SSE event stream for this client."""
-        # Send initial connection message
-        connection_message = sse_manager.format_sse_message(
-            json.dumps({"status": "connected", "clientId": client_id}),
-            event="connection"
-        )
-        yield connection_message
+    try:
+        # Register a new client
+        client_id = sse_manager.register_client()
+        logger.info(f"New SSE connection established: {client_id}")
         
-        # Loop to send messages from the queue and heartbeats
-        try:
-            client = sse_manager.get_client(client_id)
-            if not client:
-                logger.error(f"Client {client_id} not found after registration")
-                return
+        # Add this connection to metrics - using request tracking instead of counter
+        request_id = str(uuid.uuid4())
+        metrics_store.start_request(request_id, "SSE_CONNECT")
+        
+        # Get tools list to send as part of initial connection
+        tools_list = handle_tools_list()
+        
+        @stream_with_context
+        def event_stream():
+            """Generate SSE event stream for this client."""
+            try:
+                # Send initial connection message
+                connection_message = sse_manager.format_sse_message(
+                    json.dumps({"status": "connected", "clientId": client_id}),
+                    event="connection"
+                )
+                yield connection_message
                 
-            heartbeat_count = 0
+                # Send tools list immediately after connection
+                tools_list_message = sse_manager.format_sse_message(
+                    json.dumps({"id": "init", "jsonrpc": "2.0", "result": tools_list}),
+                    event="jsonrpc"
+                )
+                yield tools_list_message
+                
+                # Loop to send messages from the queue and heartbeats
+                client = sse_manager.get_client(client_id)
+                if not client:
+                    logger.error(f"Client {client_id} not found after registration")
+                    return
+                    
+                heartbeat_count = 0
+                
+                while client.connected:
+                    # Check for messages with a timeout
+                    message = client.get_message(timeout=SSE_HEARTBEAT_INTERVAL)
+                    
+                    if message:
+                        # We have a message to send
+                        sse_message = sse_manager.format_sse_message(
+                            message["data"],
+                            event=message["event"]
+                        )
+                        yield sse_message
+                    else:
+                        # No message, send heartbeat
+                        heartbeat_count += 1
+                        heartbeat = sse_manager.format_sse_message(
+                            json.dumps({"type": "heartbeat", "count": heartbeat_count}),
+                            event="heartbeat"
+                        )
+                        yield heartbeat
             
-            while client.connected:
-                # Check for messages with a timeout
-                message = client.get_message(timeout=SSE_HEARTBEAT_INTERVAL)
-                
-                if message:
-                    # We have a message to send
-                    sse_message = sse_manager.format_sse_message(
-                        message["data"],
-                        event=message["event"]
-                    )
-                    yield sse_message
-                else:
-                    # No message, send heartbeat
-                    heartbeat_count += 1
-                    heartbeat = sse_manager.format_sse_message(
-                        json.dumps({"type": "heartbeat", "count": heartbeat_count}),
-                        event="heartbeat"
-                    )
-                    yield heartbeat
-        
-        except GeneratorExit:
-            # Client disconnected
-            logger.info(f"SSE client disconnected: {client_id}")
-        except Exception as e:
-            logger.exception(f"Error in SSE stream for {client_id}: {str(e)}")
-        finally:
-            # Clean up the client
-            sse_manager.unregister_client(client_id)
-            # Record completion of the SSE connection
-            metrics_store.end_request(request_id, 200)
+            except GeneratorExit:
+                # Client disconnected
+                logger.info(f"SSE client disconnected: {client_id}")
+            except Exception as e:
+                logger.exception(f"Error in SSE stream for {client_id}: {str(e)}")
+            finally:
+                # Clean up the client
+                sse_manager.unregister_client(client_id)
+                # Record completion of the SSE connection
+                metrics_store.end_request(request_id, 200)
 
-    # Configure the response as an event stream
-    response = Response(event_stream(), mimetype="text/event-stream")
-    response.headers.add('Cache-Control', 'no-cache')
-    response.headers.add('Connection', 'keep-alive')
-    response.headers.add('X-Accel-Buffering', 'no')  # Disable buffering for nginx
-    return response
+        # Configure the response as an event stream
+        response = Response(event_stream(), mimetype="text/event-stream")
+        
+        # Set required headers for SSE
+        response.headers.add('Cache-Control', 'no-cache')
+        response.headers.add('Connection', 'keep-alive')
+        response.headers.add('X-Accel-Buffering', 'no')  # Disable buffering for nginx
+        response.headers.add('Content-Type', 'text/event-stream')
+        
+        return response
+        
+    except Exception as e:
+        logger.exception(f"Error setting up SSE connection: {str(e)}")
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 
 @app.route('/sse/<client_id>', methods=['POST'])

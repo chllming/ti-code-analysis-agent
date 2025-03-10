@@ -28,7 +28,7 @@ RUN adduser --disabled-password --gecos "" appuser && \
     chown -R appuser:appuser /app /tmp/mcp_temp
 
 # Install Python dependencies
-RUN pip install --no-cache-dir -r requirements.txt gunicorn
+RUN pip install --no-cache-dir -r requirements.txt gunicorn gevent eventlet
 
 # Copy the application code
 COPY . .
@@ -49,10 +49,11 @@ ENV MCP_HOST=0.0.0.0 \
     FLAKE8_CONFIG=/app/config/flake8.ini \
     TEMP_DIR=/tmp/mcp_temp \
     ENABLE_JSON_LOGS=true \
-    ENABLE_METRICS=true
+    ENABLE_METRICS=true \
+    SSE_HEARTBEAT_INTERVAL=15
 
-# Command to run the server with gunicorn
-CMD gunicorn --bind 0.0.0.0:${PORT} --workers 4 --log-file - --access-logfile - src.mcp_server:app
+# Command to run the server with gunicorn using gevent worker for better SSE support
+CMD gunicorn --bind 0.0.0.0:${PORT} --workers 4 --worker-class gevent --log-file - --access-logfile - --timeout 120 --keep-alive 120 --worker-connections 1000 src.mcp_server:app
 
 # Add a healthcheck to verify the server is running properly
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \

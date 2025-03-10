@@ -6,6 +6,7 @@ This module handles processing JSON-RPC requests and sending responses over SSE.
 
 import json
 import logging
+import traceback
 from typing import Dict, Any, Optional, Callable
 
 from .sse_manager import sse_manager
@@ -35,11 +36,18 @@ class SSEJsonRpcHandler:
             client_id: The SSE client ID
             message: The JSON-RPC request message as a string
         """
-        logger.debug(f"Processing message from client {client_id}")
+        logger.debug(f"Processing message from client {client_id}: {message[:100]}...")
         
         try:
             # Parse the JSON-RPC request
             request_data = parse_jsonrpc_request(message)
+            
+            # Extract the request ID if available
+            request_id = request_data.get("id")
+            
+            # Log the method being called
+            method = request_data.get("method", "unknown")
+            logger.info(f"SSE client {client_id} called method: {method}")
             
             # Check if parsing failed
             if "error" in request_data:
@@ -48,10 +56,27 @@ class SSEJsonRpcHandler:
                 return
             
             # Process the request with the handler function
-            response_data = self.jsonrpc_handler_func(request_data)
-            
-            # Send the response back to the client
-            self._send_response(client_id, response_data)
+            try:
+                response_data = self.jsonrpc_handler_func(request_data)
+                
+                # Send the response back to the client
+                self._send_response(client_id, response_data)
+                logger.info(f"Successfully processed {method} request for client {client_id}")
+                
+            except Exception as e:
+                logger.exception(f"Error processing JSON-RPC method {method}: {str(e)}")
+                error_response = {
+                    "jsonrpc": "2.0",
+                    "id": request_id,
+                    "error": {
+                        "code": -32603,  # Internal error
+                        "message": str(e),
+                        "data": {
+                            "traceback": traceback.format_exc()
+                        }
+                    }
+                }
+                self._send_response(client_id, error_response)
             
         except Exception as e:
             logger.exception(f"Error processing message: {str(e)}")
@@ -75,14 +100,21 @@ class SSEJsonRpcHandler:
             response_data: The JSON-RPC response data
         """
         try:
+            # Ensure the response has the correct format
+            if "jsonrpc" not in response_data:
+                response_data["jsonrpc"] = "2.0"
+                
             # Send the response as a JSON-RPC event
-            sse_manager.send_message(
+            success = sse_manager.send_message(
                 client_id=client_id,
                 data=response_data,
                 event="jsonrpc"
             )
             
-            logger.debug(f"Sent response to client {client_id}")
+            if success:
+                logger.debug(f"Sent response to client {client_id}")
+            else:
+                logger.warning(f"Failed to send response to client {client_id}, client may be disconnected")
             
         except Exception as e:
             logger.error(f"Error sending response to client {client_id}: {str(e)}")

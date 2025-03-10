@@ -140,23 +140,33 @@ class SSEManager:
                 logger.info(f"Cleaned up {len(to_remove)} inactive SSE clients")
     
     def format_sse_message(self, data: str, event: Optional[str] = None, id: Optional[str] = None) -> str:
-        """Format a message according to SSE protocol."""
+        """
+        Format a message according to SSE protocol.
+        
+        Following the exact specification for EventSource protocol:
+        - Each field must end with a line feed (\n)
+        - The message must end with two line feeds (\n\n)
+        - Event field is optional
+        - ID field is optional
+        - Data can be split across multiple 'data:' lines
+        """
         message = []
         
-        if id is not None:
-            message.append(f"id: {id}")
-        
+        # Add event type if provided
         if event is not None:
             message.append(f"event: {event}")
         
-        # SSE data field must be sent line by line with 'data:' prefix
+        # Add id if provided
+        if id is not None:
+            message.append(f"id: {id}")
+        
+        # Split data by newlines and prefix each line with "data: "
         for line in data.split('\n'):
             message.append(f"data: {line}")
         
-        # Empty line to finish the message
-        message.append("")
-        
-        return "\n".join(message)
+        # The message must end with two newlines to be recognized as complete
+        message_str = '\n'.join(message) + '\n\n'
+        return message_str
 
 
 # Create a singleton instance
