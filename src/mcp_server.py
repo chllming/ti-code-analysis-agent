@@ -353,9 +353,9 @@ def sse_connect() -> Response:
     client_id = sse_manager.register_client()
     logger.info(f"New SSE connection established: {client_id}")
     
-    # Add this connection to metrics
-    metrics_store.increment_counter("sse_connections_total")
-    metrics_store.set_gauge("sse_connections_active", len(sse_manager.clients))
+    # Add this connection to metrics - using request tracking instead of counter
+    request_id = str(uuid.uuid4())
+    metrics_store.start_request(request_id, "SSE_CONNECT")
     
     @stream_with_context
     def event_stream():
@@ -404,7 +404,8 @@ def sse_connect() -> Response:
         finally:
             # Clean up the client
             sse_manager.unregister_client(client_id)
-            metrics_store.set_gauge("sse_connections_active", len(sse_manager.clients))
+            # Record completion of the SSE connection
+            metrics_store.end_request(request_id, 200)
 
     # Configure the response as an event stream
     response = Response(event_stream(), mimetype="text/event-stream")
