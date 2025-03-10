@@ -26,6 +26,7 @@ from .utils.structured_logging import configure_logging, LoggingMiddleware
 from .utils.metrics import get_metrics_store
 from .utils.sse_manager import sse_manager
 from .utils.sse_jsonrpc_handler import SSEJsonRpcHandler, sse_jsonrpc_handler
+from .utils.redis_sse_manager import RedisSSEManager, redis_sse_manager
 
 # Load environment variables
 load_dotenv()
@@ -50,6 +51,7 @@ MCP_HOST = os.getenv("MCP_HOST", "0.0.0.0")
 MCP_PORT = int(os.getenv("MCP_PORT", "5000"))
 TEMP_DIR = os.getenv("TEMP_DIR", "/tmp/mcp_temp")
 SSE_HEARTBEAT_INTERVAL = int(os.getenv("SSE_HEARTBEAT_INTERVAL", "30"))
+USE_REDIS = os.getenv("USE_REDIS", "true").lower() == "true"
 
 # Apply logging middleware
 app.wsgi_app = LoggingMiddleware(app.wsgi_app, logger)
@@ -63,6 +65,14 @@ ERROR_INVALID_REQUEST = -32600
 ERROR_METHOD_NOT_FOUND = -32601
 ERROR_INVALID_PARAMS = -32602
 ERROR_INTERNAL_ERROR = -32603
+
+# Choose the SSE manager to use
+if USE_REDIS:
+    logger.info("Using Redis-based SSE manager")
+    active_sse_manager = redis_sse_manager
+else:
+    logger.info("Using in-memory SSE manager")
+    active_sse_manager = sse_manager
 
 # Initialize SSE JSON-RPC handler with our handler function
 def init_sse_jsonrpc_handler():
@@ -366,7 +376,7 @@ def sse_connect() -> Response:
     """
     try:
         # Register a new client
-        client_id = sse_manager.register_client()
+        client_id = active_sse_manager.register_client()
         logger.info(f"New SSE connection established: {client_id}")
         
         # Add this connection to metrics - using request tracking instead of counter
@@ -381,21 +391,21 @@ def sse_connect() -> Response:
             """Generate SSE event stream for this client."""
             try:
                 # Send initial connection message
-                connection_message = sse_manager.format_sse_message(
+                connection_message = active_sse_manager.format_sse_message(
                     json.dumps({"status": "connected", "clientId": client_id}),
                     event="connection"
                 )
                 yield connection_message
                 
                 # Send tools list immediately after connection
-                tools_list_message = sse_manager.format_sse_message(
+                tools_list_message = active_sse_manager.format_sse_message(
                     json.dumps({"id": "init", "jsonrpc": "2.0", "result": tools_list}),
                     event="jsonrpc"
                 )
                 yield tools_list_message
                 
                 # Loop to send messages from the queue and heartbeats
-                client = sse_manager.get_client(client_id)
+                client = active_sse_manager.get_client(client_id)
                 if not client:
                     logger.error(f"Client {client_id} not found after registration")
                     return
@@ -408,7 +418,7 @@ def sse_connect() -> Response:
                     
                     if message:
                         # We have a message to send
-                        sse_message = sse_manager.format_sse_message(
+                        sse_message = active_sse_manager.format_sse_message(
                             message["data"],
                             event=message["event"]
                         )
@@ -416,7 +426,7 @@ def sse_connect() -> Response:
                     else:
                         # No message, send heartbeat
                         heartbeat_count += 1
-                        heartbeat = sse_manager.format_sse_message(
+                        heartbeat = active_sse_manager.format_sse_message(
                             json.dumps({"type": "heartbeat", "count": heartbeat_count}),
                             event="heartbeat"
                         )
@@ -430,7 +440,7 @@ def sse_connect() -> Response:
             finally:
                 # Mark the client as disconnected but don't remove it yet
                 # This allows for a grace period where the client can still receive messages
-                sse_manager.unregister_client(client_id)
+                active_sse_manager.unregister_client(client_id)
                 # Record completion of the SSE connection
                 metrics_store.end_request(request_id, 200)
 
@@ -458,7 +468,7 @@ def sse_message(client_id: str) -> Response:
     while receiving responses via the SSE connection.
     """
     # Verify the client exists
-    client = sse_manager.get_client(client_id)
+    client = active_sse_manager.get_client(client_id)
     if not client:
         logger.warning(f"Message received for unknown client: {client_id}")
         return jsonify({"status": "error", "message": "Unknown client ID"}), 404

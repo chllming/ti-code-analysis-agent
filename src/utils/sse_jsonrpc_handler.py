@@ -10,10 +10,16 @@ import traceback
 from typing import Dict, Any, Optional, Callable
 
 from .sse_manager import sse_manager
+from .redis_sse_manager import redis_sse_manager
 from .jsonrpc import validate_jsonrpc_request, parse_jsonrpc_request
+import os
 
 # Configure logger
 logger = logging.getLogger(__name__)
+
+# Determine which SSE manager to use
+USE_REDIS = os.environ.get("USE_REDIS", "true").lower() == "true"
+active_sse_manager = redis_sse_manager if USE_REDIS else sse_manager
 
 class SSEJsonRpcHandler:
     """Handles JSON-RPC over SSE communication."""
@@ -105,7 +111,7 @@ class SSEJsonRpcHandler:
                 response_data["jsonrpc"] = "2.0"
                 
             # Send the response as a JSON-RPC event
-            success = sse_manager.send_message(
+            success = active_sse_manager.send_message(
                 client_id=client_id,
                 data=response_data,
                 event="jsonrpc"
